@@ -1,0 +1,6 @@
+{
+  "name": "Cook IA",
+  "description": "An advanced AI-powered development environment and chat interface with real-time feedback, secure authentication, and high-fidelity animations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
