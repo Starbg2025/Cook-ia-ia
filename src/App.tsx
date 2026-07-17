@@ -62,6 +62,23 @@ export default function App() {
     }
   }, [activeConversationId]);
 
+  // Automatically restore code blocks when a conversation is loaded
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Find the last assistant message that has code blocks
+      const lastMessageWithCode = [...messages].reverse().find(
+        m => m.role === 'assistant' && m.codeBlocks && m.codeBlocks.length > 0
+      );
+      if (lastMessageWithCode && lastMessageWithCode.codeBlocks) {
+        setCodeBlocks(lastMessageWithCode.codeBlocks);
+      } else {
+        setCodeBlocks([]);
+      }
+    } else {
+      setCodeBlocks([]);
+    }
+  }, [messages]);
+
   // Sync active messages updates to conversations list in real-time
   useEffect(() => {
     if (!activeConversationId || messages.length === 0) return;
