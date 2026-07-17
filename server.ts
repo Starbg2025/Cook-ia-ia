@@ -147,58 +147,6 @@ async function tryOpenRouter(messages: any[]): Promise<string> {
   throw lastError;
 }
 
-// NVIDIA NIM fallback caller
-async function tryNvidia(messages: any[]): Promise<string> {
-  const apiKey = process.env.NVIDIA_API_KEY;
-  if (!apiKey) {
-    throw new Error('NVIDIA_API_KEY is not configured');
-  }
-
-  const models = [
-    'z-ai/glm-5.2',
-    'google/gemma-2-9b-it',
-    'google/gemma-2-27b-it',
-    'meta/llama-3.1-8b-instruct',
-    'nvidia/nemotron-4-340b-instruct'
-  ];
-  let lastError: any = new Error('No models executed in NVIDIA');
-
-  for (const model of models) {
-    try {
-      console.log(`[Fallback] Attempting NVIDIA generation with model: ${model}...`);
-      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.7,
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`NVIDIA API returned status ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json() as any;
-      const text = data.choices?.[0]?.message?.content;
-      if (text) {
-        console.log(`[Success] NVIDIA succeeded with model: ${model}`);
-        return text;
-      }
-    } catch (err: any) {
-      console.warn(`[Warning] NVIDIA model ${model} failed:`, err.message || err);
-      lastError = err;
-    }
-  }
-
-  throw lastError;
-}
-
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -320,33 +268,16 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
       if (!generatedText) {
         if (process.env.OPENROUTER_API_KEY) {
           try {
-            console.log('Cascade [3/4]: Trying OpenRouter...');
+            console.log('Cascade [3/3]: Trying OpenRouter...');
             generatedText = await tryOpenRouter(openAIMessages);
             providerUsed = 'OpenRouter';
           } catch (err: any) {
-            console.warn('OpenRouter failed, cascading to NVIDIA NIM:', err.message || err);
+            console.warn('OpenRouter failed:', err.message || err);
             errors.push(`OpenRouter Error: ${err.message || err}`);
           }
         } else {
-          console.log('OpenRouter key is missing, cascading to NVIDIA NIM...');
+          console.log('OpenRouter key is missing...');
           errors.push('OpenRouter: Non configuré');
-        }
-      }
-
-      // 4. TRY NVIDIA NIM (Third Fallback)
-      if (!generatedText) {
-        if (process.env.NVIDIA_API_KEY) {
-          try {
-            console.log('Cascade [4/4]: Trying NVIDIA NIM...');
-            generatedText = await tryNvidia(openAIMessages);
-            providerUsed = 'NVIDIA';
-          } catch (err: any) {
-            console.warn('NVIDIA failed:', err.message || err);
-            errors.push(`NVIDIA Error: ${err.message || err}`);
-          }
-        } else {
-          console.log('NVIDIA key is missing...');
-          errors.push('NVIDIA: Non configuré');
         }
       }
 

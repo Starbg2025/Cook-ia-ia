@@ -153,6 +153,185 @@ const parseMessageContent = (content: string): ParsedMessage => {
   return { cleanText, images };
 };
 
+const executeClientSideCascade = async (userMsg: string, chatHistory: Array<{ role: string; content: string }>): Promise<string> => {
+  const systemPrompt = `Tu es un concepteur de sites web d'élite et développeur d'applications web d'exception. Ta mission est de générer des sites web de qualité professionnelle absolue, extrêmement complets, esthétiques, ergonomiques et animés.
+
+RÈGLES DE STRUCTURE ET DE CLASSIFICATION DU CODE :
+1. Tu DOIS toujours donner le nom de tes fichiers dans la déclaration du bloc de code markdown. Par exemple :
+   \`\`\`html:accueil.html
+   <!-- Code de la page d'accueil -->
+   \`\`\`
+   \`\`\`css:style.css
+   /* Code CSS ultra moderne */
+   \`\`\`
+   \`\`\`javascript:script.js
+   // Logique interactive complète
+   \`\`\`
+2. Ne propose JAMAIS de code simplifié ou tronqué ("à suivre...", "insérez le reste ici", "// Reste du code..."). Tout ton code doit être entièrement rédigé, fonctionnel, propre et prêt à tourner.
+
+RÈGLES DE DESIGN ET D'ANIMATIONS :
+1. Le rendu visuel doit être extrêmement haut de gamme, digne d'une marque technologique ou de luxe (Apple, Stripe, Tesla). Utilise des typographies soignées, des espacements généreux, des effets de flou ("glassmorphism") et de subtiles bordures lumineuses.
+2. Intègre des animations fluides et agréables avec GSAP ou des classes d'animations (Animate.css). Par exemple, des apparitions au défilement, des micro-interactions sur les boutons, et des transitions de pages fluides.
+3. Le site doit intégrer Alpine.js pour rendre l'interface extrêmement dynamique (gestion d'un panier d'achat, ouverture de tiroir/modale de checkout, filtres en direct, simulateur de prix, etc.).
+4. Pour les images, utilise de vraies et splendides images d'Unsplash adaptées au thème demandé (Bijoux, Mode, Sneakers, Accessoires, etc.) ou celles spécifiées dans l'invite.
+5. Intègre toujours un système e-commerce sophistiqué et fonctionnel : panier d'achat interactif avec badge animé, tiroir coulissant avec calcul automatique des prix en direct, configuration d'options (couleur, taille, accessoires), et une page de paiement simulée somptueuse avec ticket de caisse imprimable ou reçu détaillé.`;
+
+  const errors: string[] = [];
+
+  // Get keys from Vite environment variables (client-side)
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+  const openRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+
+  // 1. TRY GEMINI (Client-side)
+  if (geminiKey) {
+    try {
+      console.log('[Client Cascade] Trying Gemini...');
+      const geminiHistory = chatHistory.map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content || '' }]
+      }));
+      const contents = [
+        ...geminiHistory,
+        { role: 'user', parts: [{ text: userMsg }] }
+      ];
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: systemPrompt }] }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API returned status ${response.status}: ${errText}`);
+      }
+
+      const resData = await response.json();
+      const text = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        console.log('[Client Cascade] Success with Gemini!');
+        return text;
+      }
+    } catch (e: any) {
+      console.warn('Client Gemini failed:', e);
+      errors.push(`Gemini (Client): ${e.message || e}`);
+    }
+  } else {
+    errors.push('Gemini (Client): VITE_GEMINI_API_KEY non configurée');
+  }
+
+  // Common OpenAI format messages
+  const openAIMessages = [
+    { role: 'system', content: systemPrompt },
+    ...chatHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content || ''
+    })),
+    { role: 'user', content: userMsg }
+  ];
+
+  // 2. TRY GROQ (Client-side)
+  if (groqKey) {
+    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it', 'mixtral-8x7b-32768'];
+    for (const model of models) {
+      try {
+        console.log(`[Client Cascade] Trying Groq with model ${model}...`);
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${groqKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: openAIMessages,
+            temperature: 0.7
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Groq returned ${response.status}: ${errText}`);
+        }
+
+        const resData = await response.json();
+        const text = resData.choices?.[0]?.message?.content;
+        if (text) {
+          console.log(`[Client Cascade] Success with Groq model ${model}!`);
+          return text;
+        }
+      } catch (e: any) {
+        console.warn(`Client Groq ${model} failed:`, e);
+        errors.push(`Groq ${model} (Client): ${e.message || e}`);
+      }
+    }
+  } else {
+    errors.push('Groq (Client): VITE_GROQ_API_KEY non configurée');
+  }
+
+  // 3. TRY OPENROUTER (Client-side)
+  if (openRouterKey) {
+    const models = [
+      'google/gemma-2-9b-it:free',
+      'meta-llama/llama-3-8b-instruct:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+      'mistralai/mistral-7b-instruct:free'
+    ];
+    for (const model of models) {
+      try {
+        console.log(`[Client Cascade] Trying OpenRouter with model ${model}...`);
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openRouterKey}`,
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'Cook IA Client'
+          },
+          body: JSON.stringify({
+            model,
+            messages: openAIMessages,
+            temperature: 0.7
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`OpenRouter returned ${response.status}: ${errText}`);
+        }
+
+        const resData = await response.json();
+        const text = resData.choices?.[0]?.message?.content;
+        if (text) {
+          console.log(`[Client Cascade] Success with OpenRouter model ${model}!`);
+          return text;
+        }
+      } catch (e: any) {
+        console.warn(`Client OpenRouter ${model} failed:`, e);
+        errors.push(`OpenRouter ${model} (Client): ${e.message || e}`);
+      }
+    }
+  } else {
+    errors.push('OpenRouter (Client): VITE_OPENROUTER_API_KEY non configurée');
+  }
+
+  throw new Error(`[Erreur d'hébergement ou configuration]
+
+Vous êtes probablement sur un hébergement statique (comme Netlify) où le serveur d'arrière-plan ne peut pas s'exécuter, ou aucune clé API n'est configurée correctement.
+
+Pour faire fonctionner l'IA sur Netlify, veuillez configurer l'une de ces variables d'environnement dans les paramètres de votre site Netlify :
+- VITE_GEMINI_API_KEY
+- VITE_GROQ_API_KEY
+- VITE_OPENROUTER_API_KEY
+
+Détails des erreurs rencontrées :
+- ${errors.join('\n- ')}`);
+};
+
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
   user, 
   onThinkingChange, 
@@ -235,36 +414,44 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         await new Promise(r => setTimeout(r, 800));
       }
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: userMessage.content,
-          history: messages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }]
-          }))
-        })
-      });
+      let chatContent = '';
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: userMessage.content,
+            history: messages.map(m => ({
+              role: m.role === 'user' ? 'user' : 'model',
+              parts: [{ text: m.content }]
+            }))
+          })
+        });
 
-      let errorMessageText = "Désolé, une erreur est survenue lors de la préparation de votre demande. Veuillez réessayer.";
-      if (!response.ok) {
-        try {
-          const errData = await response.json();
-          if (errData && errData.error) {
-            errorMessageText = `Erreur : ${errData.error}`;
-          }
-        } catch (_) {}
-        throw new Error(errorMessageText);
+        if (!response.ok) {
+          console.warn('Backend API failed or returned error. Triggering client-side fallback...');
+          chatContent = await executeClientSideCascade(
+            userMessage.content,
+            messages.map(m => ({ role: m.role, content: m.content }))
+          );
+        } else {
+          const data = await response.json();
+          chatContent = data.content;
+        }
+      } catch (backendErr: any) {
+        console.warn('Could not connect to backend API. Triggering client-side fallback...', backendErr);
+        chatContent = await executeClientSideCascade(
+          userMessage.content,
+          messages.map(m => ({ role: m.role, content: m.content }))
+        );
       }
       
-      const data = await response.json();
-      const { blocks, cleanText } = parseCodeBlocks(data.content);
+      const { blocks, cleanText } = parseCodeBlocks(chatContent);
 
       const aiMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: data.content,
+        content: chatContent,
         cleanContent: cleanText,
         codeBlocks: blocks,
         timestamp: new Date().toISOString()
