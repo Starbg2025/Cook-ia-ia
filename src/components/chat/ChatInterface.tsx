@@ -222,6 +222,10 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
 
         if (!response.ok) {
           const errText = await response.text();
+          if (response.status === 401 || response.status === 403) {
+            errors.push(`NVIDIA Auth Error: ${response.status}`);
+            break; // Stop trying other NVIDIA models if auth fails
+          }
           throw new Error(`NVIDIA returned ${response.status}: ${errText}`);
         }
 
@@ -302,6 +306,10 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
 
         if (!response.ok) {
           const errText = await response.text();
+          if (response.status === 401 || response.status === 403) {
+            errors.push(`Groq Auth Error: ${response.status}`);
+            break;
+          }
           throw new Error(`Groq returned ${response.status}: ${errText}`);
         }
 
@@ -348,6 +356,10 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
 
         if (!response.ok) {
           const errText = await response.text();
+          if (response.status === 401 || response.status === 403) {
+            errors.push(`OpenRouter Auth Error: ${response.status}`);
+            break;
+          }
           throw new Error(`OpenRouter returned ${response.status}: ${errText}`);
         }
 
@@ -369,17 +381,7 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
   console.log('All API services unavailable. Loading premium local fallback generator.');
   const localTemplate = generateLocalTemplate(userMsg);
   
-  return `🔔 **[Mode Démo Activé - Clés API non configurées]**
-Vous êtes actuellement sur un hébergement statique (comme Netlify) et aucune clé d'IA n'a été trouvée dans votre panneau de configuration. 
-**Pas d'inquiétude !** Cook IA a activé son générateur local d'élite. J'ai conçu pour vous un prototype ultra premium interactif adapté à votre demande :
-
----
-
-${localTemplate}
-
----
-
-💡 *Pour activer l'IA complète (NVIDIA/Gemini/Groq/OpenRouter) sur votre hébergement Netlify, allez dans "Site configuration" > "Environment variables" et ajoutez **VITE_NVIDIA_API_KEY** (ou VITE_GEMINI_API_KEY / VITE_GROQ_API_KEY / VITE_OPENROUTER_API_KEY) avec votre clé API.*`;
+  return localTemplate;
 };
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 

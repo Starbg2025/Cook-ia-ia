@@ -90,6 +90,29 @@ export default function App() {
     }));
   }, [messages, activeConversationId]);
 
+  // Auto-create conversation if missing when messages are sent
+  useEffect(() => {
+    if (messages.length > 0 && !activeConversationId) {
+      const newId = 'convo-' + Date.now();
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      const title = firstUserMessage 
+        ? (firstUserMessage.content.length > 30 ? firstUserMessage.content.substring(0, 30) + '...' : firstUserMessage.content)
+        : "Nouvelle Recette IA";
+        
+      const newConvo: SavedConversation = {
+        id: newId,
+        title,
+        lastMessage: messages[messages.length - 1].cleanContent || messages[messages.length - 1].content,
+        timestamp: new Date().toISOString(),
+        messageCount: messages.length,
+        messages: messages
+      };
+      
+      setConversations(prev => [newConvo, ...prev]);
+      setActiveConversationId(newId);
+    }
+  }, [messages, activeConversationId]);
+
   // Load conversations from Supabase on mount/user change
   useEffect(() => {
     let active = true;
@@ -189,7 +212,25 @@ export default function App() {
     if (supabaseSyncStatus === 'loading') return;
 
     // Local storage is always the local source of truth
-    localStorage.setItem('cook_ia_conversations', JSON.stringify(conversations));
+    try {
+      localStorage.setItem('cook_ia_conversations', JSON.stringify(conversations));
+    } catch (e) {
+      console.warn('LocalStorage quota exceeded. Stripping images to save space.');
+      try {
+        const strippedConversations = conversations.map(convo => ({
+          ...convo,
+          lastMessage: convo.lastMessage.replace(/\[Image importée[^\]]+\]/g, '[Image attachée]'),
+          messages: convo.messages.map(m => ({
+            ...m,
+            content: m.content.replace(/\[Image importée\s*:\s*"[^"]*"\s*\(source:\s*data:image\/[^;]+;base64,[^)]+\)\]/g, '[Image attachée]'),
+            cleanContent: m.cleanContent ? m.cleanContent.replace(/\[Image importée\s*:\s*"[^"]*"\s*\(source:\s*data:image\/[^;]+;base64,[^)]+\)\]/g, '[Image attachée]') : undefined
+          }))
+        }));
+        localStorage.setItem('cook_ia_conversations', JSON.stringify(strippedConversations));
+      } catch (err) {
+        console.error('Could not save to localStorage even after stripping.', err);
+      }
+    }
 
     if (!user) return;
 
