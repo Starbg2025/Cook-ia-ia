@@ -180,11 +180,67 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
   const errors: string[] = [];
 
   // Get keys from Vite environment variables (client-side)
+  const nvidiaKey = import.meta.env.VITE_NVIDIA_API_KEY;
   const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const groqKey = import.meta.env.VITE_GROQ_API_KEY;
   const openRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 
-  // 1. TRY GEMINI (Client-side)
+  // Common OpenAI format messages
+  const openAIMessages = [
+    { role: 'system', content: systemPrompt },
+    ...chatHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content || ''
+    })),
+    { role: 'user', content: userMsg }
+  ];
+
+  // 1. TRY NVIDIA NIM (Client-side)
+  if (nvidiaKey) {
+    const models = [
+      'z-ai/glm-5.2',
+      'google/gemma-2-9b-it',
+      'google/gemma-2-27b-it',
+      'meta/llama-3.1-8b-instruct',
+      'nvidia/nemotron-4-340b-instruct'
+    ];
+    for (const model of models) {
+      try {
+        console.log(`[Client Cascade] Trying NVIDIA NIM with model ${model}...`);
+        const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${nvidiaKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: openAIMessages,
+            temperature: 0.7
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`NVIDIA returned ${response.status}: ${errText}`);
+        }
+
+        const resData = await response.json();
+        const text = resData.choices?.[0]?.message?.content;
+        if (text) {
+          console.log(`[Client Cascade] Success with NVIDIA model ${model}!`);
+          return text;
+        }
+      } catch (e: any) {
+        console.warn(`Client NVIDIA ${model} failed:`, e);
+        errors.push(`NVIDIA ${model} (Client): ${e.message || e}`);
+      }
+    }
+  } else {
+    errors.push('NVIDIA (Client): VITE_NVIDIA_API_KEY non configurée');
+  }
+
+  // 2. TRY GEMINI (Client-side)
   if (geminiKey) {
     try {
       console.log('[Client Cascade] Trying Gemini...');
@@ -225,17 +281,7 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
     errors.push('Gemini (Client): VITE_GEMINI_API_KEY non configurée');
   }
 
-  // Common OpenAI format messages
-  const openAIMessages = [
-    { role: 'system', content: systemPrompt },
-    ...chatHistory.map(m => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.content || ''
-    })),
-    { role: 'user', content: userMsg }
-  ];
-
-  // 2. TRY GROQ (Client-side)
+  // 3. TRY GROQ (Client-side)
   if (groqKey) {
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it', 'mixtral-8x7b-32768'];
     for (const model of models) {
@@ -333,7 +379,7 @@ ${localTemplate}
 
 ---
 
-💡 *Pour activer l'IA complète (Gemini/Groq/OpenRouter) sur votre hébergement Netlify, ajoutez la variable d'environnement **VITE_GEMINI_API_KEY** dans les paramètres de votre site Netlify.*`;
+💡 *Pour activer l'IA complète (NVIDIA/Gemini/Groq/OpenRouter) sur votre hébergement Netlify, allez dans "Site configuration" > "Environment variables" et ajoutez **VITE_NVIDIA_API_KEY** (ou VITE_GEMINI_API_KEY / VITE_GROQ_API_KEY / VITE_OPENROUTER_API_KEY) avec votre clé API.*`;
 };
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 

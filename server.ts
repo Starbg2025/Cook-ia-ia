@@ -147,6 +147,58 @@ async function tryOpenRouter(messages: any[]): Promise<string> {
   throw lastError;
 }
 
+// NVIDIA NIM fallback caller
+async function tryNvidia(messages: any[]): Promise<string> {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) {
+    throw new Error('NVIDIA_API_KEY is not configured');
+  }
+
+  const models = [
+    'z-ai/glm-5.2',
+    'google/gemma-2-9b-it',
+    'google/gemma-2-27b-it',
+    'meta/llama-3.1-8b-instruct',
+    'nvidia/nemotron-4-340b-instruct'
+  ];
+  let lastError: any = new Error('No models executed in NVIDIA');
+
+  for (const model of models) {
+    try {
+      console.log(`[Fallback] Attempting NVIDIA generation with model: ${model}...`);
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.7,
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`NVIDIA API returned status ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json() as any;
+      const text = data.choices?.[0]?.message?.content;
+      if (text) {
+        console.log(`[Success] NVIDIA succeeded with model: ${model}`);
+        return text;
+      }
+    } catch (err: any) {
+      console.warn(`[Warning] NVIDIA model ${model} failed:`, err.message || err);
+      lastError = err;
+    }
+  }
+
+  throw lastError;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -191,67 +243,84 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
       let providerUsed = '';
       const errors: string[] = [];
 
-      // 1. TRY GEMINI (Primary)
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          console.log('Cascade [1/4]: Trying Gemini as primary provider...');
-          const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
-          let response;
-          let lastError;
-
-          for (const modelName of modelsToTry) {
-            let attempts = 0;
-            const maxAttempts = 1; // 1 attempt is ideal for fallback agility
-            while (attempts < maxAttempts) {
-              try {
-                console.log(`Gemini: testing ${modelName}...`);
-                const chat = ai.chats.create({
-                  model: modelName,
-                  history: history || [],
-                  config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                  }
-                });
-                response = await chat.sendMessage({ message });
-                if (response && response.text) {
-                  break;
-                }
-              } catch (err: any) {
-                lastError = err;
-                attempts++;
-                if (attempts < maxAttempts) {
-                  await new Promise(resolve => setTimeout(resolve, 500));
-                }
-              }
-            }
-            if (response && response.text) {
-              break;
-            }
-          }
-
-          if (response && response.text) {
-            generatedText = response.text;
-            providerUsed = 'Gemini';
-          } else {
-            throw lastError || new Error('Gemini models failed to output content');
-          }
-        } catch (err: any) {
-          console.warn('Gemini failed, cascading to Groq:', err.message || err);
-          errors.push(`Gemini Error: ${err.message || err}`);
-        }
-      } else {
-        console.log('Gemini key is missing, cascading to Groq...');
-        errors.push('Gemini: Non configuré');
-      }
-
-      // Convert history for OpenAI-compatible fallback APIs
+      // Convert history for OpenAI-compatible fallback APIs early
       const openAIMessages = convertHistoryToOpenAIMessages(SYSTEM_INSTRUCTION, history || [], message);
 
-      // 2. TRY GROQ (First Fallback)
+      // 1. TRY NVIDIA NIM (Primary)
+      if (process.env.NVIDIA_API_KEY) {
+        try {
+          console.log('Cascade [1/4]: Trying NVIDIA NIM as primary provider...');
+          generatedText = await tryNvidia(openAIMessages);
+          providerUsed = 'NVIDIA NIM';
+        } catch (err: any) {
+          console.warn('NVIDIA failed, cascading to Gemini:', err.message || err);
+          errors.push(`NVIDIA Error: ${err.message || err}`);
+        }
+      } else {
+        console.log('NVIDIA key is missing, cascading to Gemini...');
+        errors.push('NVIDIA: Non configuré');
+      }
+
+      // 2. TRY GEMINI (First Fallback)
+      if (!generatedText) {
+        if (process.env.GEMINI_API_KEY) {
+          try {
+            console.log('Cascade [2/4]: Trying Gemini...');
+            const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
+            let response;
+            let lastError;
+
+            for (const modelName of modelsToTry) {
+              let attempts = 0;
+              const maxAttempts = 1; // 1 attempt is ideal for fallback agility
+              while (attempts < maxAttempts) {
+                try {
+                  console.log(`Gemini: testing ${modelName}...`);
+                  const chat = ai.chats.create({
+                    model: modelName,
+                    history: history || [],
+                    config: {
+                      systemInstruction: SYSTEM_INSTRUCTION,
+                    }
+                  });
+                  response = await chat.sendMessage({ message });
+                  if (response && response.text) {
+                    break;
+                  }
+                } catch (err: any) {
+                  lastError = err;
+                  attempts++;
+                  if (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                  }
+                }
+              }
+              if (response && response.text) {
+                break;
+              }
+            }
+
+            if (response && response.text) {
+              generatedText = response.text;
+              providerUsed = 'Gemini';
+            } else {
+              throw lastError || new Error('Gemini models failed to output content');
+            }
+          } catch (err: any) {
+            console.warn('Gemini failed, cascading to Groq:', err.message || err);
+            errors.push(`Gemini Error: ${err.message || err}`);
+          }
+        } else {
+          console.log('Gemini key is missing, cascading to Groq...');
+          errors.push('Gemini: Non configuré');
+        }
+      }
+
+      // 3. TRY GROQ (Second Fallback)
       if (!generatedText) {
         if (process.env.GROQ_API_KEY) {
           try {
-            console.log('Cascade [2/4]: Trying Groq...');
+            console.log('Cascade [3/4]: Trying Groq...');
             generatedText = await tryGroq(openAIMessages);
             providerUsed = 'Groq';
           } catch (err: any) {
@@ -264,11 +333,11 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
         }
       }
 
-      // 3. TRY OPENROUTER (Second Fallback)
+      // 4. TRY OPENROUTER (Third Fallback)
       if (!generatedText) {
         if (process.env.OPENROUTER_API_KEY) {
           try {
-            console.log('Cascade [3/3]: Trying OpenRouter...');
+            console.log('Cascade [4/4]: Trying OpenRouter...');
             generatedText = await tryOpenRouter(openAIMessages);
             providerUsed = 'OpenRouter';
           } catch (err: any) {
