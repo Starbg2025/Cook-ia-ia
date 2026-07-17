@@ -155,6 +155,7 @@ async function tryNvidia(messages: any[]): Promise<string> {
   }
 
   const models = [
+    'z-ai/glm-5.2',
     'google/gemma-2-9b-it',
     'google/gemma-2-27b-it',
     'meta/llama-3.1-8b-instruct',
