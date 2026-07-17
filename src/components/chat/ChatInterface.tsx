@@ -21,6 +21,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '../../lib/utils';
 import { ChatMessage, User } from '../../types';
 import { parseCodeBlocks } from '../../lib/codeParser';
+import { generateLocalTemplate } from './localGenerator';
 
 interface ChatInterfaceProps {
   user?: User | null;
@@ -319,17 +320,20 @@ RÈGLES DE DESIGN ET D'ANIMATIONS :
     errors.push('OpenRouter (Client): VITE_OPENROUTER_API_KEY non configurée');
   }
 
-  throw new Error(`[Erreur d'hébergement ou configuration]
+  console.log('All API services unavailable. Loading premium local fallback generator.');
+  const localTemplate = generateLocalTemplate(userMsg);
+  
+  return `🔔 **[Mode Démo Activé - Clés API non configurées]**
+Vous êtes actuellement sur un hébergement statique (comme Netlify) et aucune clé d'IA n'a été trouvée dans votre panneau de configuration. 
+**Pas d'inquiétude !** Cook IA a activé son générateur local d'élite. J'ai conçu pour vous un prototype ultra premium interactif adapté à votre demande :
 
-Vous êtes probablement sur un hébergement statique (comme Netlify) où le serveur d'arrière-plan ne peut pas s'exécuter, ou aucune clé API n'est configurée correctement.
+---
 
-Pour faire fonctionner l'IA sur Netlify, veuillez configurer l'une de ces variables d'environnement dans les paramètres de votre site Netlify :
-- VITE_GEMINI_API_KEY
-- VITE_GROQ_API_KEY
-- VITE_OPENROUTER_API_KEY
+${localTemplate}
 
-Détails des erreurs rencontrées :
-- ${errors.join('\n- ')}`);
+---
+
+💡 *Pour activer l'IA complète (Gemini/Groq/OpenRouter) sur votre hébergement Netlify, ajoutez la variable d'environnement **VITE_GEMINI_API_KEY** dans les paramètres de votre site Netlify.*`;
 };
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
