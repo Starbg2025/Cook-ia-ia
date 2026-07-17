@@ -128,6 +128,31 @@ const ECOMMERCE_PRESETS = [
   }
 ];
 
+interface ParsedMessage {
+  cleanText: string;
+  images: Array<{ name: string; url: string }>;
+}
+
+const parseMessageContent = (content: string): ParsedMessage => {
+  if (!content) return { cleanText: '', images: [] };
+  const images: Array<{ name: string; url: string }> = [];
+  const regex = /\[Image importée\s*:\s*"([^"]*)"\s*\(source:\s*(data:image\/[^;]+;base64,[^)]+)\)\]/g;
+  
+  let cleanText = content;
+  let match;
+  
+  regex.lastIndex = 0;
+  while ((match = regex.exec(content)) !== null) {
+    images.push({
+      name: match[1],
+      url: match[2],
+    });
+  }
+  
+  cleanText = content.replace(regex, '').trim();
+  return { cleanText, images };
+};
+
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
   user, 
   onThinkingChange, 
@@ -146,6 +171,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Modal active states: 'images' | 'clone' | 'ecommerce' | null
   const [activeModal, setActiveModal] = useState<'images' | 'clone' | 'ecommerce' | null>(null);
   const [uploadedImages, setUploadedImages] = useState<Array<{ name: string; url: string }>>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<Array<{ name: string; url: string }>>([]);
   const [copiedImageIndex, setCopiedImageIndex] = useState<number | null>(null);
   const [cloneUrl, setCloneUrl] = useState('');
   const [productUrl, setProductUrl] = useState('');
@@ -182,18 +208,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   }, [input]);
 
   const handleSend = async () => {
-    if (!input.trim() || isThinking) return;
+    if ((!input.trim() && pendingAttachments.length === 0) || isThinking) return;
+
+    // Concaténer le texte du prompt et les payloads des images importées
+    const imagePayloads = pendingAttachments.map(img => `[Image importée : "${img.name}" (source: ${img.url})]`).join('\n');
+    const finalContent = input.trim() + (imagePayloads ? (input.trim() ? '\n\n' : '') + imagePayloads : '');
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: finalContent,
       timestamp: new Date().toISOString(),
       status: 'sent'
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setPendingAttachments([]); // Vider les images en attente
     setIsThinking(true);
     setThinkingStep('Analyse');
 
@@ -260,12 +291,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       reader.onloadend = () => {
         const newImg = { name: file.name, url: reader.result as string };
         setUploadedImages(prev => [newImg, ...prev]);
-        
-        // Auto-append description of the image to the prompt
-        setInput(prev => {
-          const sep = prev ? '\n' : '';
-          return prev + sep + `[Image importée : "${file.name}" (source: ${reader.result})]`;
-        });
+        setPendingAttachments(prev => [...prev, newImg]);
       };
       reader.readAsDataURL(file);
     }
@@ -338,31 +364,58 @@ Organise parfaitement le code sous forme de fichiers bien nommés (accueil.html,
           </div>
         )}
 
-        {messages.map((msg) => (
-          <motion.div
-            key={msg.id}
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className={cn(
-              "flex flex-col gap-2",
-              msg.role === 'user' ? "items-end" : "items-start"
-            )}
-          >
-            <div className={cn(
-              "max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-inner",
-              msg.role === 'user' 
-                ? "bg-white/5 text-white border border-white/5" 
-                : "bg-white/5 text-white/90 border border-white/5"
-            )}>
-              <div className="prose prose-invert max-w-none prose-p:my-1 prose-headings:font-serif prose-headings:font-normal">
-                <ReactMarkdown>{msg.cleanContent || msg.content}</ReactMarkdown>
+        {messages.map((msg) => {
+          const { cleanText, images: msgImages } = parseMessageContent(msg.cleanContent || msg.content);
+          return (
+            <motion.div
+              key={msg.id}
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className={cn(
+                "flex flex-col gap-2",
+                msg.role === 'user' ? "items-end" : "items-start"
+              )}
+            >
+              <div className={cn(
+                "max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-inner",
+                msg.role === 'user' 
+                  ? "bg-white/5 text-white border border-white/5" 
+                  : "bg-white/5 text-white/90 border border-white/5"
+              )}>
+                {cleanText && (
+                  <div className="prose prose-invert max-w-none prose-p:my-1 prose-headings:font-serif prose-headings:font-normal">
+                    <ReactMarkdown>{cleanText}</ReactMarkdown>
+                  </div>
+                )}
+                
+                {msgImages.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {msgImages.map((img, i) => (
+                      <div key={i} className="group relative rounded-xl overflow-hidden border border-white/10 w-24 h-24 sm:w-28 sm:h-28 bg-black/40">
+                        <img 
+                          src={img.url} 
+                          alt={img.name} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                          onClick={() => {
+                            const w = window.open();
+                            if (w) w.document.write(`<img src="${img.url}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                          }}
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-[9px] text-white/70 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                          {img.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-2 text-[9px] text-white/20 font-bold uppercase tracking-widest">
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
               </div>
-              <div className="mt-2 text-[9px] text-white/20 font-bold uppercase tracking-widest">
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
 
         {isThinking && (
           <motion.div
@@ -436,8 +489,28 @@ Organise parfaitement le code sous forme de fichiers bien nommés (accueil.html,
             "focus-within:border-amber-500/40 focus-within:ring-4 focus-within:ring-amber-500/5 focus-within:shadow-[0_0_50px_rgba(245,158,11,0.06)]"
           )}>
             {/* Ambient Background Glow Effect when typing */}
-            {input.length > 0 && (
+            {(input.length > 0 || pendingAttachments.length > 0) && (
               <div className="absolute inset-0 bg-gradient-to-r from-amber-500/2 via-transparent to-emerald-500/2 opacity-60 pointer-events-none" />
+            )}
+
+            {/* Liste des images en attente d'envoi */}
+            {pendingAttachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 px-5 pt-4 pb-2 border-b border-white/5 z-10">
+                {pendingAttachments.map((img, idx) => (
+                  <div key={idx} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                    <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white/70 hover:text-white hover:bg-black transition-all cursor-pointer flex items-center justify-center shadow-md"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 text-[8px] text-white/50 truncate">
+                      {img.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             <textarea
