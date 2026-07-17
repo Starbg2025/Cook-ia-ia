@@ -247,7 +247,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         })
       });
 
-      if (!response.ok) throw new Error('Erreur lors de la génération');
+      let errorMessageText = "Désolé, une erreur est survenue lors de la préparation de votre demande. Veuillez réessayer.";
+      if (!response.ok) {
+        try {
+          const errData = await response.json();
+          if (errData && errData.error) {
+            errorMessageText = `Erreur : ${errData.error}`;
+          }
+        } catch (_) {}
+        throw new Error(errorMessageText);
+      }
       
       const data = await response.json();
       const { blocks, cleanText } = parseCodeBlocks(data.content);
@@ -266,12 +275,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       if (blocks.length > 0 && onCodeGenerated) {
         onCodeGenerated(blocks);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: "Désolé, une erreur est survenue lors de la préparation de votre demande. Veuillez réessayer.",
+        content: err.message || "Désolé, une erreur est survenue lors de la préparation de votre demande. Veuillez réessayer.",
         timestamp: new Date().toISOString(),
         status: 'error'
       };
