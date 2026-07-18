@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Brain, Code2, Play, Terminal, Zap, Copy, Check } from 'lucide-react';
+import { Brain, Code2, Play, Terminal, Zap, Copy, Check, RefreshCw, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { buildPreviewSrcDoc, CodeBlock } from '../../lib/codeParser';
 
@@ -114,6 +114,26 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 }) => {
   const [selectedBlockIndex, setSelectedBlockIndex] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleOpenInNewTab = () => {
+    let htmlContent = '';
+    const isPythonBlock = activeBlock && (activeBlock.language === 'python' || activeBlock.language === 'py');
+    
+    if (isPythonBlock) {
+      htmlContent = buildPythonRunnerSrcDoc(activeBlock.code);
+    } else {
+      htmlContent = buildPreviewSrcDoc(codeBlocks);
+    }
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
 
   // Automatically reset selected block index when codeBlocks change
   useEffect(() => {
@@ -448,9 +468,28 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col h-full w-full min-h-[400px] sm:min-h-[500px]">
+                  {/* Actions Header */}
+                  <div className="flex items-center justify-end gap-2 mb-3">
+                    <button
+                      onClick={handleRefresh}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Refresh
+                    </button>
+                    <button
+                      onClick={handleOpenInNewTab}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-widest transition-all"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Grand écran
+                    </button>
+                  </div>
+
                   {/* Visual Frame */}
                   <div className="flex-1 relative rounded-2xl border border-white/5 bg-black overflow-hidden shadow-2xl">
                     <iframe
+                      key={`preview-${refreshKey}`}
                       id="preview-iframe"
                       title="Cook IA Live Preview"
                       sandbox="allow-scripts allow-modals allow-same-origin"
