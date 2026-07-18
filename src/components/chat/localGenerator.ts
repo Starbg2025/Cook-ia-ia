@@ -80,7 +80,19 @@ export function generateLocalTemplate(prompt: string): string {
     return getAirbnbTemplate();
   }
 
-  // 7. PORTFOLIO / CREATIVE SHOWCASE
+  // 7. ANIMATED LANDING PAGE (21st.dev style)
+  if (
+    p.includes('21st') ||
+    p.includes('animation') ||
+    p.includes('accueil') ||
+    p.includes('shadcn') ||
+    p.includes('pricing') ||
+    p.includes('pin')
+  ) {
+    return getAnimatedLandingTemplate();
+  }
+
+  // 8. PORTFOLIO / CREATIVE SHOWCASE
   if (
     p.includes('portfolio') ||
     p.includes('cv') ||
@@ -100,6 +112,286 @@ export function generateLocalTemplate(prompt: string): string {
 // ==========================================
 // TEMPLATE COMPILERS (COMPRESSED & PREMIUM)
 // ==========================================
+
+function getAnimatedLandingTemplate(): string {
+  return `### 🚀 Landing Page Animée - Style "21st.dev / Shadcn"
+
+Voici une page d'accueil d'élite, extrêmement dynamique et animée. J'ai intégré les concepts que vous avez demandés :
+- Un tableau de prix (Pricing Table) ultra moderne et interactif.
+- Des composants inspirés de Shadcn (Boutons avec effets magnétiques, badges).
+- Une liste d'éléments épinglés (Pinned Items).
+- Des animations fluides avec Alpine.js et CSS (Glassmorphism, Hover Effects).
+
+\`\`\`html:index.html
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Premium Animations Landing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #030712; color: #f9fafb; }
+    
+    .blob {
+      position: absolute;
+      filter: blur(80px);
+      z-index: 0;
+      opacity: 0.6;
+      animation: pulse-blob 8s infinite alternate;
+    }
+    @keyframes pulse-blob {
+      0% { transform: scale(1) translate(0, 0); }
+      100% { transform: scale(1.1) translate(20px, 30px); }
+    }
+    
+    /* Shadcn-like button animations */
+    .btn-shadcn {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    .btn-shadcn::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(255,255,255,0.2), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-shadcn:hover::after { opacity: 1; }
+    .btn-shadcn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(255, 255, 255, 0.1); }
+    
+    /* Pin List Animations */
+    .pin-item {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .pin-item:hover {
+      transform: translateX(10px) scale(1.02);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Pricing Card Glow */
+    .pricing-card {
+      transition: all 0.5s ease;
+    }
+    .pricing-card:hover {
+      transform: translateY(-10px);
+      border-color: #3b82f6;
+      box-shadow: 0 20px 40px -10px rgba(59, 130, 246, 0.3);
+    }
+    
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body x-data="landingEngine()" class="relative overflow-x-hidden">
+  
+  <!-- Background blobs -->
+  <div class="blob bg-blue-600/30 w-96 h-96 rounded-full top-[-10%] left-[-10%]"></div>
+  <div class="blob bg-purple-600/20 w-[500px] h-[500px] rounded-full bottom-20 right-[-10%]" style="animation-delay: -4s"></div>
+  
+  <!-- Navbar -->
+  <nav class="fixed top-0 w-full z-50 bg-[#030712]/70 backdrop-blur-xl border-b border-white/10 transition-all duration-300" :class="{'py-4': !scrolled, 'py-2': scrolled}" @scroll.window="scrolled = (window.pageYOffset > 20)">
+    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
+      <div class="flex items-center gap-2 group cursor-pointer">
+        <div class="bg-white text-black p-1.5 rounded-lg group-hover:rotate-12 transition-transform">
+          <i data-lucide="layers" class="w-5 h-5"></i>
+        </div>
+        <span class="font-bold text-lg tracking-tight">Cook UI</span>
+      </div>
+      <div class="hidden md:flex gap-8 text-sm font-medium text-gray-300">
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#pins" class="hover:text-white transition-colors">Pinned</a>
+        <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+      </div>
+      <button class="btn-shadcn bg-white text-black px-5 py-2 rounded-md text-sm font-semibold">
+        Get Started
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <main class="relative z-10 pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-gray-300 mb-8 cursor-pointer hover:bg-white/10 transition">
+      <span class="flex h-2 w-2 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+      </span>
+      Nouvelle animation 21st.dev ajoutée
+      <i data-lucide="arrow-right" class="w-3 h-3 ml-1"></i>
+    </div>
+    
+    <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight">
+      L'Art de concevoir des <br/>
+      <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+        Interfaces Interactives
+      </span>
+    </h1>
+    <p class="text-lg md:text-xl text-gray-400 max-w-2xl mb-10 font-light leading-relaxed">
+      Découvrez des composants ultra-modernes inspirés par Shadcn UI, Aceternity et 21st.dev. Prêts à être utilisés.
+    </p>
+    
+    <div class="flex flex-col sm:flex-row gap-4 w-full justify-center">
+      <button class="btn-shadcn bg-white text-black px-8 py-3.5 rounded-lg font-semibold flex items-center justify-center gap-2">
+        Explorer les composants
+        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      </button>
+      <button class="btn-shadcn bg-white/5 border border-white/10 text-white px-8 py-3.5 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-white/10">
+        <i data-lucide="github" class="w-4 h-4"></i>
+        Star on GitHub
+      </button>
+    </div>
+  </main>
+
+  <!-- Pinned Items (Pin List) -->
+  <section id="pins" class="relative z-10 py-20 px-6 max-w-4xl mx-auto">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight">Pinned Items</h2>
+        <p class="text-gray-400 text-sm mt-1">Vos composants favoris, toujours accessibles.</p>
+      </div>
+      <button class="text-sm font-medium text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+        Voir tout <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+      </button>
+    </div>
+    
+    <div class="space-y-4">
+      <template x-for="(item, index) in pinnedItems" :key="index">
+        <div class="pin-item group flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5 backdrop-blur-sm cursor-pointer">
+          <div class="flex items-center gap-4">
+            <div class="p-3 rounded-lg border border-white/10 bg-black/50 text-gray-300 group-hover:text-white transition-colors" x-html="lucide.createIcons({icons: {[item.icon]: true}}); return '<i data-lucide=' + item.icon + '></i>'">
+              <i :data-lucide="item.icon" class="w-5 h-5 text-current"></i>
+            </div>
+            <div>
+              <h3 class="font-semibold text-white group-hover:text-blue-400 transition-colors" x-text="item.title"></h3>
+              <p class="text-sm text-gray-400 mt-0.5" x-text="item.description"></p>
+            </div>
+          </div>
+          <button class="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-400 transition-all rounded-md hover:bg-red-400/10">
+            <i data-lucide="pin-off" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- Pricing Table -->
+  <section id="pricing" class="relative z-10 py-24 px-6 bg-gradient-to-b from-transparent to-black">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4">Pricing simple et clair</h2>
+        <p class="text-gray-400">Choisissez le plan qui convient à votre ambition.</p>
+        
+        <!-- Toggle -->
+        <div class="mt-8 inline-flex items-center p-1 bg-white/5 border border-white/10 rounded-lg">
+          <button @click="annual = false" :class="{'bg-white text-black shadow-sm': !annual, 'text-gray-400 hover:text-white': annual}" class="px-6 py-2 rounded-md text-sm font-medium transition-all">
+            Mensuel
+          </button>
+          <button @click="annual = true" :class="{'bg-white text-black shadow-sm': annual, 'text-gray-400 hover:text-white': !annual}" class="px-6 py-2 rounded-md text-sm font-medium transition-all">
+            Annuel <span class="text-xs text-blue-500 ml-1 font-bold">-20%</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <!-- Plan 1 -->
+        <div class="pricing-card bg-[#09090b] border border-white/10 p-8 rounded-2xl flex flex-col relative overflow-hidden">
+          <h3 class="text-xl font-semibold mb-2">Hobby</h3>
+          <p class="text-sm text-gray-400 mb-6">Pour les projets personnels.</p>
+          <div class="mb-8">
+            <span class="text-4xl font-bold" x-text="annual ? '$0' : '$0'"></span>
+            <span class="text-gray-500 text-sm">/mois</span>
+          </div>
+          <ul class="space-y-4 mb-8 flex-1">
+            <li class="flex items-center gap-3 text-sm text-gray-300"><i data-lucide="check" class="w-4 h-4 text-blue-500"></i> Composants gratuits</li>
+            <li class="flex items-center gap-3 text-sm text-gray-300"><i data-lucide="check" class="w-4 h-4 text-blue-500"></i> Support communautaire</li>
+          </ul>
+          <button class="btn-shadcn w-full py-2.5 rounded-lg border border-white/20 text-white font-medium hover:bg-white/5">
+            Démarrer
+          </button>
+        </div>
+        
+        <!-- Plan 2 (Pro) -->
+        <div class="pricing-card bg-gradient-to-b from-blue-900/20 to-[#09090b] border border-blue-500/50 p-8 rounded-2xl flex flex-col relative overflow-hidden transform md:-translate-y-4 shadow-[0_0_40px_-10px_rgba(59,130,246,0.3)] z-10">
+          <div class="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-wider rounded-bl-lg">
+            Populaire
+          </div>
+          <h3 class="text-xl font-semibold mb-2 text-white">Pro</h3>
+          <p class="text-sm text-blue-200/60 mb-6">Pour les professionnels et freelances.</p>
+          <div class="mb-8">
+            <span class="text-4xl font-bold text-white" x-text="annual ? '$19' : '$24'"></span>
+            <span class="text-blue-200/40 text-sm">/mois</span>
+          </div>
+          <ul class="space-y-4 mb-8 flex-1">
+            <li class="flex items-center gap-3 text-sm text-gray-200"><i data-lucide="check" class="w-4 h-4 text-blue-400"></i> Tout du plan Hobby</li>
+            <li class="flex items-center gap-3 text-sm text-gray-200"><i data-lucide="check" class="w-4 h-4 text-blue-400"></i> Composants Premium Shadcn</li>
+            <li class="flex items-center gap-3 text-sm text-gray-200"><i data-lucide="check" class="w-4 h-4 text-blue-400"></i> Support par email prioritaire</li>
+          </ul>
+          <button class="btn-shadcn w-full py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium">
+            S'abonner
+          </button>
+        </div>
+        
+        <!-- Plan 3 -->
+        <div class="pricing-card bg-[#09090b] border border-white/10 p-8 rounded-2xl flex flex-col relative overflow-hidden">
+          <h3 class="text-xl font-semibold mb-2">Team</h3>
+          <p class="text-sm text-gray-400 mb-6">Pour les agences et équipes.</p>
+          <div class="mb-8">
+            <span class="text-4xl font-bold" x-text="annual ? '$49' : '$59'"></span>
+            <span class="text-gray-500 text-sm">/mois</span>
+          </div>
+          <ul class="space-y-4 mb-8 flex-1">
+            <li class="flex items-center gap-3 text-sm text-gray-300"><i data-lucide="check" class="w-4 h-4 text-blue-500"></i> Licences illimitées</li>
+            <li class="flex items-center gap-3 text-sm text-gray-300"><i data-lucide="check" class="w-4 h-4 text-blue-500"></i> Templates Figma inclus</li>
+            <li class="flex items-center gap-3 text-sm text-gray-300"><i data-lucide="check" class="w-4 h-4 text-blue-500"></i> Support téléphonique 24/7</li>
+          </ul>
+          <button class="btn-shadcn w-full py-2.5 rounded-lg border border-white/20 text-white font-medium hover:bg-white/5">
+            Contacter les ventes
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/10 py-8 px-6 bg-black relative z-10">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <i data-lucide="layers" class="w-5 h-5 text-white"></i>
+        <span class="font-bold text-white">Cook UI</span>
+      </div>
+      <p class="text-sm text-gray-500">© 2026 Cook IA. Conçu avec Tailwind & Alpine.js.</p>
+    </div>
+  </footer>
+
+  <script>
+    function landingEngine() {
+      return {
+        scrolled: false,
+        annual: false,
+        pinnedItems: [
+          { title: "Shadcn Button", description: "Bouton avec effet magnétique et bordure magique.", icon: "mouse-pointer-click" },
+          { title: "Pricing Table", description: "Tableau de prix avec toggle mensuel/annuel.", icon: "credit-card" },
+          { title: "Pin List Component", description: "Liste interactive avec hover state complexe.", icon: "list" },
+          { title: "Animated Beam", description: "Animation SVG pour relier des nœuds.", icon: "git-merge" }
+        ],
+        init() {
+          setTimeout(() => lucide.createIcons(), 50);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
+\`\`\``;
+}
 
 function getJewelryTemplate(): string {
   return `### 💎 Joaillerie d'Or Rose - Boutique de Prestige

@@ -184,7 +184,6 @@ RÈGLES STRICTES DE STRUCTURE ET DE RENDU :
   const errors: string[] = [];
 
   // Get keys from Vite environment variables (client-side)
-  const nvidiaKey = import.meta.env.VITE_NVIDIA_API_KEY;
   const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const groqKey = import.meta.env.VITE_GROQ_API_KEY;
   const openRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
@@ -199,56 +198,7 @@ RÈGLES STRICTES DE STRUCTURE ET DE RENDU :
     { role: 'user', content: userMsg }
   ];
 
-  // 1. TRY NVIDIA NIM (Client-side)
-  if (nvidiaKey) {
-    const models = [
-      'z-ai/glm-5.2',
-      'google/gemma-2-9b-it',
-      'google/gemma-2-27b-it',
-      'meta/llama-3.1-8b-instruct',
-      'nvidia/nemotron-4-340b-instruct'
-    ];
-    for (const model of models) {
-      try {
-        console.log(`[Client Cascade] Trying NVIDIA NIM with model ${model}...`);
-        const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${nvidiaKey}`
-          },
-          body: JSON.stringify({
-            model,
-            messages: openAIMessages,
-            temperature: 0.7
-          })
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          if (response.status === 401 || response.status === 403) {
-            errors.push(`NVIDIA Auth Error: ${response.status}`);
-            break; // Stop trying other NVIDIA models if auth fails
-          }
-          throw new Error(`NVIDIA returned ${response.status}: ${errText}`);
-        }
-
-        const resData = await response.json();
-        const text = resData.choices?.[0]?.message?.content;
-        if (text) {
-          console.log(`[Client Cascade] Success with NVIDIA model ${model}!`);
-          return text;
-        }
-      } catch (e: any) {
-        console.warn(`Client NVIDIA ${model} failed:`, e);
-        errors.push(`NVIDIA ${model} (Client): ${e.message || e}`);
-      }
-    }
-  } else {
-    errors.push('NVIDIA (Client): VITE_NVIDIA_API_KEY non configurée');
-  }
-
-  // 2. TRY GEMINI (Client-side)
+  // 1. TRY GEMINI (Client-side)
   if (geminiKey) {
     try {
       console.log('[Client Cascade] Trying Gemini...');
